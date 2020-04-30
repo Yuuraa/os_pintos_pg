@@ -61,6 +61,7 @@ typedef int tid_t;
          the kernel stack.  Our base `struct thread' is only a
          few bytes in size.  It probably should stay well under 1
          kB.
+         
 
       2. Second, kernel stacks must not be allowed to grow too
          large.  If a stack overflows, it will corrupt the thread
@@ -88,9 +89,17 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
-    struct list_elem allelem;           /* List element for all threads list. */
-    int64_t wakeup_tick;
+    
+    // My variables
+    int original_priority; //Original priority
+    struct lock * wanted_lock; // Waiting lock
+    struct list holding_locks; // Lock list that this thread is holding
+    struct list donated_priorities; // Received priorities while holding the lock
+    
 
+    int64_t wakeup_tick; // for timer_sleep
+    
+    struct list_elem allelem;           /* List element for all threads list. */
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
@@ -134,6 +143,7 @@ int64_t get_next_tick_to_awake(void);
 void update_next_tick_to_awake(int64_t ticks);
 bool thread_compare_priority(const struct list_elem* a, struct list_elem *b, void *aux UNUSED);
 void test_max_priority (void);
+
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);
 void thread_foreach (thread_action_func *, void *);
