@@ -68,8 +68,8 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      //list_insert_ordered (&sema->waiters, &thread_current ()->elem, thread_compare_priority,0);
-      list_push_back (&sema->waiters, &thread_current ()->elem);
+      list_insert_ordered (&sema->waiters, &thread_current ()->elem, thread_compare_priority,0);
+      // list_push_back (&sema->waiters, &thread_current ()->elem);
       thread_block ();
     }
   sema->value--;
@@ -201,13 +201,13 @@ lock_acquire (struct lock *lock)
   ASSERT (!intr_context ());
   ASSERT (!lock_held_by_current_thread (lock));
 
-/*  if(lock->holder != NULL)
+  if(lock->holder != NULL)
     donate_priority_to_holder(lock);
-  thread_current()->wanted_lock = lock;*/
+  thread_current()->wanted_lock = lock;
   sema_down (&lock->semaphore);
   lock->holder = thread_current ();
-/*  thread_current()->wanted_lock = NULL;
-  list_push_back(&thread_current()-> holding_locks, &lock-> elem);*/
+  thread_current()->wanted_lock = NULL;
+  list_push_back(&thread_current()-> holding_locks, &lock-> elem);
 }
 
 // My function
@@ -255,9 +255,9 @@ lock_release (struct lock *lock)
 {
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
-  
-  list_remove(&lock-> elem); // Removes lock from holding_locks(maybe?)
-  thread_current()->priority = get_next_priority();
+
+//  list_remove(&lock-> elem); // Removes lock from holding_locks(maybe?)
+//  thread_current()->priority = get_next_priority();
   
   lock->holder = NULL;
   sema_up (&lock->semaphore);
@@ -267,6 +267,7 @@ static int
 get_next_priority()
 {
   struct list locks = thread_current()->holding_locks;
+  //ASSERT (&locks != NULL);
   struct list_elem *i = list_begin(&locks);
 
   int p = thread_current()->original_priority;
