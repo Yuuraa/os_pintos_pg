@@ -257,31 +257,31 @@ lock_release (struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
 
   list_remove(&lock-> elem); // Removes lock from holding_locks(maybe?)
-//  thread_current()->priority = get_next_priority();
+  thread_current()->priority = get_next_priority();
   
   lock->holder = NULL;
   sema_up (&lock->semaphore);
 }
 
 static int
-get_next_priority()
+get_next_priority(void)
 {
-  struct list locks = thread_current()->holding_locks;
-  //ASSERT (&locks != NULL);
-  struct list_elem *i = list_begin(&locks);
-
+  struct list *locks = &thread_current()->holding_locks;
   int p = thread_current()->original_priority;
+  //ASSERT (&locks != NULL);
+  struct list_elem *i;
 
-  while(i != list_end(&locks)){
+  // From list_elem usage in list.h
+  for (i = list_begin (locks); i != list_end (locks); i = list_next (i)){
     struct list* waiting = &list_entry(i, struct lock, elem)->semaphore.waiters;
     if(!list_empty(waiting)){
-      struct list_elem* highest_waiting_elem = list_front(waiting); 
+      // 왜 list_front를 begin으로 고치니 잘 되는지 확인 필요
+      struct list_elem* highest_waiting_elem = list_begin(waiting); 
       int highest_priority = list_entry(highest_waiting_elem, struct thread, elem)->priority;
   
       if(highest_priority > p)
         p = highest_priority;
     }
-    i = list_next(i);
   }
   return p;
 }
