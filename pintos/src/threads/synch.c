@@ -256,7 +256,7 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
-//  list_remove(&lock-> elem); // Removes lock from holding_locks(maybe?)
+  list_remove(&lock-> elem); // Removes lock from holding_locks(maybe?)
 //  thread_current()->priority = get_next_priority();
   
   lock->holder = NULL;
