@@ -114,10 +114,15 @@ sema_up (struct semaphore *sema)
   ASSERT (sema != NULL);
 
   old_level = intr_disable ();
-  if (!list_empty (&sema->waiters)) 
-    thread_unblock (list_entry (list_pop_front (&sema->waiters),
-                                struct thread, elem));
   sema->value++;
+  if (!list_empty (&sema->waiters)){ 
+    struct thread* thd = list_entry (list_pop_front (&sema->waiters), struct thread, elem);
+    thread_unblock(thd); // Unblocked the waiting thread (it is possible fot thd to run now)
+    // My added lines due to priority scheduling!
+    if(thd->priority > thread_current()->priority){
+      thread_yield(); // Yield the CPU to the freed, higher priority thread
+    }                             
+  }
   intr_set_level (old_level);
 }
 
@@ -240,8 +245,11 @@ lock_try_acquire (struct lock *lock)
   ASSERT (!lock_held_by_current_thread (lock));
 
   success = sema_try_down (&lock->semaphore);
-  if (success)
-    lock->holder = thread_current ();
+  if (success){
+    lock->holder = thread_current();
+    thread_current() ->wanted_lock  = NULL;
+    list_insert_ordered(&thread_current()->holding_locks, &lock->elem, thread_compare_priority, 0);
+  }
   return success;
 }
 

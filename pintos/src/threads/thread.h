@@ -92,7 +92,7 @@ struct thread
     
     // My variables
     int original_priority; //Original priority
-    struct lock * wanted_lock; // Waiting lock
+    struct lock *wanted_lock; // Waiting lock
     struct list holding_locks; // Lock list that this thread is holding
     //struct list donated_priorities; // Received priorities while holding the lock
     
