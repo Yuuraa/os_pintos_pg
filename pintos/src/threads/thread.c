@@ -225,6 +225,9 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  if(thread_mlfqs)
+    mlfqs_calc_priority(t);
+
   if(t->priority > thread_current() -> priority)
     thread_yield();
 
@@ -514,8 +517,8 @@ void
 mlfqs_calc_priority(struct thread* t)
 {
   ASSERT(thread_mlfqs);
-  ASSERT(t != idle_thread);
-
+  if(t == idle_thread)
+    return;
   t->priority = fp_to_int_nearest(fp_sub(int_to_fp(PRI_MAX), fp_sub_int(fp_div_int(t->recent_cpu, 4), t->nice_value*2)));
   if(t->priority < PRI_MIN)
     t->priority = PRI_MIN;
@@ -651,14 +654,20 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
 
   // Problem 2
-  t->priority = priority;
-  t->original_priority = priority;
-  t->wanted_lock = NULL;
-  list_init(&t->holding_locks);
+  if(!thread_mlfqs){
+    t->priority = priority;
+    t->original_priority = priority;}
+    t->wanted_lock = NULL;
+    list_init(&t->holding_locks);
 
   // Problem 3 다시 필요
-  t->nice_value = running_thread()->nice_value; // Initialize nice value to 0
-  t->recent_cpu = running_thread()->recent_cpu; // 부모의 값을 받는다
+
+      t->recent_cpu = running_thread()->recent_cpu; // 부모의 값을 받는다
+      t->nice_value = running_thread()->nice_value;
+    if(t == initial_thread){
+      t->recent_cpu = RECENT_CPU_DEFAULT;
+      t->nice_value = NICE_DEFAULT;
+    }
 
   t->magic = THREAD_MAGIC;
   list_push_back (&all_list, &t->allelem);
