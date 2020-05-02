@@ -24,6 +24,14 @@ typedef int tid_t;
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
 
+// My variables - nice values & defaults
+#define NICE_MIN -20
+#define NICE_MAX 20
+#define NICE_DEFAULT 0
+#define RECENT_CPU_DEFAULT 0
+#define LOAD_AVG_DEFAULT 0
+
+
 /* A kernel thread or user process.
 
    Each thread structure is stored in its own 4 kB page.  The
@@ -94,8 +102,8 @@ struct thread
     int original_priority; //Original priority
     struct lock *wanted_lock; // Waiting lock
     struct list holding_locks; // Lock list that this thread is holding
-    //struct list donated_priorities; // Received priorities while holding the lock
-    
+    int nice_value;
+    int recent_cpu;
 
     int64_t wakeup_tick; // for timer_sleep
     
@@ -143,6 +151,13 @@ int64_t get_next_tick_to_awake(void);
 void update_next_tick_to_awake(int64_t ticks);
 bool thread_compare_priority(const struct list_elem* a, struct list_elem *b, void *aux UNUSED);
 void test_max_priority (void);
+// My functions for problem 3
+void mlfqs_increment_recent_cpu(void);
+void mlfqs_calc_priority(struct thread* t);
+void mlfqs_calc_recent_cpu(struct thread* t);
+void mlfqs_calc_load_avg(void);
+void mlfqs_calc_all(void);
+
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);

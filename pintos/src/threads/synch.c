@@ -220,6 +220,7 @@ static void
 donate_priority_to_holder(struct lock * lock){
   ASSERT(lock != NULL);
   ASSERT(lock->holder != NULL);
+  //ASSERT(!thread_mlfqs); // for problem 3
 
   struct thread* h = lock->holder;
   if(h->priority < thread_current()->priority){
@@ -274,6 +275,7 @@ lock_release (struct lock *lock)
 static int
 get_next_priority(void)
 {
+  //ASSERT(!thread_mlfqs); //for problem 3
   struct list *locks = &thread_current()->holding_locks;
   int p = thread_current()->original_priority;
   //ASSERT (&locks != NULL);
