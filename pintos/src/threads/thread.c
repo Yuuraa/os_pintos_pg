@@ -191,6 +191,10 @@ thread_create (const char *name, int priority,
 
   ASSERT (function != NULL);
 
+  //Added line My
+  ASSERT (priority >= PRI_MIN && priority <= PRI_MAX);
+
+
   /* Allocate thread. */
   t = palloc_get_page (PAL_ZERO);
   if (t == NULL)
@@ -225,11 +229,15 @@ thread_create (const char *name, int priority,
   /* Add to run queue. */
   thread_unblock (t);
 
+  // My
+
   if(thread_mlfqs)
     mlfqs_calc_priority(t);
 
-  if(t->priority > thread_current() -> priority)
-    thread_yield();
+  if(t->priority > thread_current() -> priority){
+    if(!intr_context())
+      thread_yield();
+  }
 
   return tid;
 }
@@ -394,7 +402,7 @@ bool thread_compare_priority(const struct list_elem* a, struct list_elem *b, voi
 void
 test_max_priority (void){
  if (!list_empty (&ready_list) && thread_current ()->priority < list_entry (list_front (&ready_list), struct thread, elem)->priority){
-    if(intr_context == true)
+    if(intr_context() == true)
       intr_yield_on_return();
     else
       thread_yield ();
@@ -448,15 +456,20 @@ thread_get_priority (void)
 void
 thread_set_nice (int new_nice) 
 {
+  ASSERT(new_nice >= NICE_MIN && new_nice <= NICE_MAX);
   // My implementation
   enum intr_level old_level;
   old_level = intr_disable ();
 
   struct thread* curr = thread_current();
   curr->nice_value = new_nice;
-  curr->priority = PRI_MAX - (curr->recent_cpu/4) - (new_nice*2);
+  mlfqs_calc_recent_cpu(curr);
+  mlfqs_calc_priority(curr);
+  //curr->priority = PRI_MAX - (curr->recent_cpu/4) - (new_nice*2);
   
-  schedule();
+  // Here comes the error...
+  /*if(thread_current()->status!=THREAD_RUNNING)
+   schedule();*/
   intr_set_level(old_level);
 }
 
@@ -517,14 +530,17 @@ void
 mlfqs_calc_priority(struct thread* t)
 {
   ASSERT(thread_mlfqs);
+  ASSERT(is_thread(t));
+
   if(t == idle_thread)
     return;
-  t->priority = fp_to_int_nearest(fp_sub(int_to_fp(PRI_MAX), fp_sub_int(fp_div_int(t->recent_cpu, 4), t->nice_value*2)));
+  t->priority = fp_to_int_nearest(fp_sub(int_to_fp(PRI_MAX), fp_add_int(fp_div_int(t->recent_cpu, 4), t->nice_value*2)));
+  
   if(t->priority < PRI_MIN)
     t->priority = PRI_MIN;
   if(t->priority > PRI_MAX)
     t->priority = PRI_MAX;
-  test_max_priority();
+  //test_max_priority();
 }
 
 // Calculates value of recent_cpu for indicated thread t
@@ -533,7 +549,7 @@ mlfqs_calc_recent_cpu(struct thread* t)
 {
   ASSERT(thread_mlfqs);
   ASSERT(t != idle_thread);
-  t->recent_cpu = fp_add_int(fp_mult(fp_div(fp_mult_int(load_avg, 2), fp_add_int(fp_mult_int(load_avg, 2), 1)), t->recent_cpu), t->nice_value*2);
+  t->recent_cpu = fp_add_int(fp_mult(fp_div(fp_mult_int(load_avg, 2), fp_add_int(fp_mult_int(load_avg, 2), 1)), t->recent_cpu), t->nice_value);
 }
 
 // Calculates load_avg value (global variable maybe?)
@@ -543,12 +559,12 @@ mlfqs_calc_load_avg(void)
   ASSERT(thread_mlfqs);
   // ASSERT(load_avg >= 0);
   int ready_threads = list_size(&ready_list);
-
   if(thread_current() != idle_thread)
     ready_threads ++;  
+  //printf("Before: my_ready_threads: %d my_load_avg: %d \n",ready_threads, load_avg);
 
   load_avg = fp_add(fp_div_int(fp_mult_int(load_avg, 59), 60), fp_div_int(int_to_fp(ready_threads), 60));
-
+  //printf("After: my_ready_threads: %d my_load_avg: %d \n",ready_threads, load_avg);
 }
 
 // Calculates all thread's recent_cpu and priority value
@@ -564,6 +580,7 @@ mlfqs_calc_all(void)
       mlfqs_calc_priority(t);
     }
   }
+  list_sort(&ready_list, thread_compare_priority, 0);
 }
 
 

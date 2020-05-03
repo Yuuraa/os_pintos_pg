@@ -176,14 +176,13 @@ timer_interrupt (struct intr_frame *args UNUSED)
   if(get_next_tick_to_awake() <= ticks){
     thread_awake(ticks);
   }
-  // 이 코드 어디에 둘지 고민! thread_tick()안에 둬야 하나..
-  //ticks 때문에 여기에 두는 것이 맞는듯
   if(thread_mlfqs){
     mlfqs_increment_recent_cpu();
     if(timer_ticks() % 4 == 0){
       mlfqs_calc_priority(thread_current());
     }
     if(timer_ticks() % TIMER_FREQ == 0){
+      //printf("sceonds: %d\n", timer_ticks() / TIMER_FREQ);
       mlfqs_calc_load_avg();
       mlfqs_calc_all();
     }
