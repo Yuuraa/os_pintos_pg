@@ -370,7 +370,7 @@ void thread_sleep(int64_t ticks)
   ASSERT (cur != idle_thread);
 
   update_next_tick_to_awake(cur->wakeup_tick = ticks);
-  list_push_back(&sleeping_list, &cur->elem);
+  list_insert_ordered(&sleeping_list, &cur->elem, thread_compare_priority, 0);
   thread_block();
   intr_set_level(old_level);  
 }

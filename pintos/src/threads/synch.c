@@ -68,8 +68,8 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      list_insert_ordered (&sema->waiters, &thread_current ()->elem, thread_compare_priority,0);
-      // list_push_back (&sema->waiters, &thread_current ()->elem);
+      //list_insert_ordered (&sema->waiters, &thread_current ()->elem, thread_compare_priority,0);
+      list_push_back (&sema->waiters, &thread_current ()->elem);
       thread_block ();
     }
   sema->value--;
@@ -116,10 +116,13 @@ sema_up (struct semaphore *sema)
   old_level = intr_disable ();
   sema->value++;
   if (!list_empty (&sema->waiters)){ 
-    struct thread* thd = list_entry (list_pop_front (&sema->waiters), struct thread, elem);
-    thread_unblock(thd); // Unblocked the waiting thread (it is possible fot thd to run now)
+    list_sort (&sema->waiters, thread_compare_priority, NULL);
+  //  struct thread* t = list_entry (list_pop_front (&sema->waiters), struct thread, elem);
+    struct thread *t = list_entry (list_pop_front (&sema->waiters),
+                                     struct thread, elem);
+    thread_unblock(t); // Unblocked the waiting thread (it is possible fot thd to run now)
     // My added lines due to priority scheduling!
-    if(thd->priority > thread_current()->priority){
+    if(t->priority > thread_current()->priority){
       thread_yield(); // Yield the CPU to the freed, higher priority thread
     }                             
   }
@@ -316,17 +319,17 @@ struct semaphore_elem
   {
     struct list_elem elem;              /* List element. */
     struct semaphore semaphore;         /* This semaphore. */
-//    int priority; // My value
+    int priority; // My value
   };
 
-/*static bool
+static bool
 cond_compare_priority (const struct list_elem *e1, const struct list_elem *e2,
                        void *aux UNUSED)
 {
   struct semaphore_elem *s1 = list_entry (e1, struct semaphore_elem, elem);
   struct semaphore_elem *s2 = list_entry (e2, struct semaphore_elem, elem);
   return s1->priority > s2->priority;
-}*/
+}
 
 /* Initializes condition variable COND.  A condition variable
    allows one piece of code to signal a condition and cooperating
@@ -370,11 +373,11 @@ cond_wait (struct condition *cond, struct lock *lock)
   ASSERT (lock_held_by_current_thread (lock));
   
   sema_init (&waiter.semaphore, 0);
-/*  //Added line
+  //Added line
   waiter.priority = thread_get_priority ();
-  */list_push_back (&cond->waiters, &waiter.elem);
-  /*list_insert_ordered (&cond->waiters, &waiter.elem,
-                       cond_compare_priority, NULL);*/
+  //list_push_back (&cond->waiters, &waiter.elem);
+  list_insert_ordered (&cond->waiters, &waiter.elem,
+                       cond_compare_priority, NULL);
   lock_release (lock);
   sema_down (&waiter.semaphore);
   lock_acquire (lock);
