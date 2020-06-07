@@ -473,6 +473,7 @@ st_push_args(const char *tokens[], int argc, void **esp) {
 
     int i, len = 0;
     void *argv_addr[argc];
+    printf("\n\nTest: %s, %s\n\n", tokens[0], tokens[1]);
     for (i = argc - 1; i >= 0; i--) {
         len = strlen(tokens[i]) + 1;
         *esp -= len;
