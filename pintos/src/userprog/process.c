@@ -42,12 +42,28 @@ tid_t process_execute(const char *file_name) {
 
     char *save_ptr;
     file_name = strtok_r((char *)file_name, " ", &save_ptr);
+
+    if (filesys_open(file_name) == NULL) {
+        return -1;
+    }
+
     //printf("Check cmd: %s, %s", file_name, fn_copy);
     /* Create a new thread to execute FILE_NAME. */
     tid = thread_create(file_name, PRI_DEFAULT, start_process, fn_copy);
+    sema_down(&thread_current()->lock_for_load);
 
     if (tid == TID_ERROR)
         palloc_free_page(fn_copy);
+
+    struct list_elem *e;
+    struct thread *t;
+
+    for (e = list_begin(&thread_current()->child_list); e != list_end(&thread_current()->child_list); e = list_next(e)) {
+        t = list_entry(e, struct thread, child_elem);
+        if (t->exit_status == -1) {
+            return process_wait(tid);
+        }
+    }
 
     //sema_down(&thread_current()->lock_for_child);
     return tid;
@@ -65,19 +81,6 @@ start_process(void *file_name_) {
     char *save_ptr_name;
     strlcpy(filename_token, file_name_, PGSIZE);
     filename_token = strtok_r(filename_token, " ", &save_ptr_name);
-    // const char **tokens = (const char **)palloc_get_page(0);
-
-    // if (tokens == NULL) {
-    //     printf("[Error] Kernel Error: Not enough memory\n");
-    //     goto finish_step;  // pid being -1, release lock, clean resources
-    // }
-    // char *token;
-    // char *save_ptr;
-    // int cnt = 0;
-    // for (token = strtok_r(file_name, " ", &save_ptr); token != NULL;
-    //      token = strtok_r(NULL, " ", &save_ptr)) {
-    //     tokens[cnt++] = token;
-    // }
 
     /* Initialize interrupt frame and load executable. */
     memset(&if_, 0, sizeof if_);
@@ -91,9 +94,10 @@ start_process(void *file_name_) {
     }
     /* If load failed, quit. */
     palloc_free_page(file_name);
+    sema_up(&thread_current()->parent->lock_for_load);
 
     if (!success)
-        thread_exit();
+        exit(-1);
     /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -170,6 +174,7 @@ int process_wait(tid_t child_tid) {
     //     ;
     // return -1;
     //For argument passing test
+
     struct list_elem *e;
     struct thread *t = NULL;
     int exit_status;

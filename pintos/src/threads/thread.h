@@ -112,19 +112,17 @@ struct thread {
 #ifdef USERPROG
   /* Owned by userprog/process.c. */
   uint32_t *pagedir; /* Page directory. */
+  int exit_status;
+
   struct semaphore lock_for_child;
   struct semaphore lock_for_mem;
+  struct semaphore lock_for_load;
 
   struct list child_list;
   struct list_elem child_elem;
+  struct thread *parent;
 
-  int exit_status;
-
-  int fd;
-  struct list files;
-  struct file *file_self;
-
-  int is_waiting;
+  struct file *fd[128];
 #endif
 
   /* Owned by thread.c. */

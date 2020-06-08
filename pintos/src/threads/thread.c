@@ -633,10 +633,19 @@ init_thread(struct thread *t, const char *name, int priority) {
 
     t->magic = THREAD_MAGIC;
     list_push_back(&all_list, &t->allelem);
-
+    int i;
 #ifdef USERPROG
-    sema_init(&(t->lock_for_mem), 0);
-    sema_init(&(t->lock_for_child), 0);
+    // fd init
+    for (i = 0; i < 128; i++) {
+        t->fd[i] = NULL;
+    }
+
+    t->parent = running_thread();
+
+    sema_init(&t->lock_for_load, 0);
+    sema_init(&t->lock_for_mem, 0);
+    sema_init(&t->lock_for_child, 0);
+
     list_init(&(t->child_list));
     list_push_back(&(running_thread()->child_list), &(t->child_elem));
 #endif
