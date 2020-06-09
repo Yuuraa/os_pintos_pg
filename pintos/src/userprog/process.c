@@ -23,6 +23,8 @@
 
 static thread_func start_process NO_RETURN;
 static bool load(const char *cmdline, void (**eip)(void), void **esp);
+
+// My fucnction for Problem 2: Argument parsing - save arguments to stack
 static void construct_stack(char *, void **esp);
 
 /* Starts a new thread running a user program loaded from
@@ -40,14 +42,18 @@ tid_t process_execute(const char *file_name) {
         return TID_ERROR;
     strlcpy(fn_copy, file_name, PGSIZE);
 
+    // parse file name
     char *save_ptr;
     file_name = strtok_r((char *)file_name, " ", &save_ptr);
 
+    //Check file valid
     if (filesys_open(file_name) == NULL) {
         return -1;
     }
 
+    //Test file name and copy
     //printf("Check cmd: %s, %s", file_name, fn_copy);
+
     /* Create a new thread to execute FILE_NAME. */
     tid = thread_create(file_name, PRI_DEFAULT, start_process, fn_copy);
     sema_down(&thread_current()->lock_for_load);
@@ -65,7 +71,6 @@ tid_t process_execute(const char *file_name) {
         }
     }
 
-    //sema_down(&thread_current()->lock_for_child);
     return tid;
 }
 
@@ -90,6 +95,7 @@ start_process(void *file_name_) {
     success = load(filename_token, &if_.eip, &if_.esp);
 
     if (success) {
+        // Make stack!
         construct_stack(file_name, &if_.esp);
     }
     /* If load failed, quit. */
@@ -105,7 +111,8 @@ start_process(void *file_name_) {
      we just point the stack pointer (%esp) to our stack frame
      and jump to it. */
 
-    //hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true);  // My implementation
+    // Use hex_dump to check whether the arguments allocate properly to the stack
+    //hex_dump(if_.esp, if_.esp, PHYS_BASE - if_.esp, true);
     asm volatile("movl %0, %%esp; jmp intr_exit"
                  :
                  : "g"(&if_)
@@ -114,6 +121,7 @@ start_process(void *file_name_) {
 }
 
 void construct_stack(char *file_name, void **esp) {
+    /* Parse cmdline to argvs */
     const char **tokens = (const char **)palloc_get_page(0);
     char *token;
     char *save_ptr;
@@ -122,6 +130,7 @@ void construct_stack(char *file_name, void **esp) {
          token = strtok_r(NULL, " ", &save_ptr)) {
         tokens[argc++] = token;
     }
+    /* Parse cmdline to argvs */
 
     ASSERT(argc >= 0);
 
@@ -134,28 +143,28 @@ void construct_stack(char *file_name, void **esp) {
         argv_addr[i] = *esp;
     }
 
-    // word align
+    // For alignment, Use the 0xfffffffc
     *esp = (void *)((unsigned int)(*esp) & 0xfffffffc);
 
-    // last null
+    // Allocate null to last one
     *esp -= 4;
     *((uint32_t *)*esp) = 0;
 
-    // setting **esp with argvs
+    // Allocate the arguments into stack
     for (i = argc - 1; i >= 0; i--) {
         *esp -= 4;
         *((void **)*esp) = argv_addr[i];
     }
 
-    // setting **argv (addr of stack, esp)
+    // Set **argv
     *esp -= 4;
     *((void **)*esp) = (*esp + 4);
 
-    // setting argc
+    // Set argc
     *esp -= 4;
     *((int *)*esp) = argc;
 
-    // setting ret addr
+    // Set return address
     *esp -= 4;
     *((int *)*esp) = 0;
 }
@@ -173,7 +182,7 @@ int process_wait(tid_t child_tid) {
     // while (1)
     //     ;
     // return -1;
-    //For argument passing test
+    //For argument passing check
 
     struct list_elem *e;
     struct thread *t = NULL;
@@ -181,11 +190,13 @@ int process_wait(tid_t child_tid) {
 
     for (e = list_begin(&(thread_current()->child_list)); e != list_end(&(thread_current()->child_list)); e = list_next(e)) {
         t = list_entry(e, struct thread, child_elem);
+
         if (child_tid == t->tid) {
             sema_down(&(t->lock_for_child));
             exit_status = t->exit_status;
             list_remove(&(t->child_elem));
             sema_up(&(t->lock_for_mem));
+
             return exit_status;
         }
     }
@@ -212,6 +223,7 @@ void process_exit(void) {
         pagedir_activate(NULL);
         pagedir_destroy(pd);
     }
+
     sema_up(&(cur->lock_for_child));
     sema_down(&(cur->lock_for_mem));
 }
@@ -534,44 +546,3 @@ install_page(void *upage, void *kpage, bool writable) {
      address, then map our page there. */
     return (pagedir_get_page(t->pagedir, upage) == NULL && pagedir_set_page(t->pagedir, upage, kpage, writable));
 }
-
-// Implementation
-// static void
-// st_push_args(const char *tokens[], int argc, void **esp) {
-//     ASSERT(argc >= 0);
-
-//     int i, len = 0;
-//     void *argv_addr[argc];
-//     //("\n\nTest: %s, %s\n\n", tokens[0], tokens[1]);
-//     for (i = argc - 1; i >= 0; i--) {
-//         len = strlen(tokens[i]) + 1;
-//         *esp -= len;
-//         memcpy(*esp, tokens[i], len);
-//         argv_addr[i] = *esp;
-//     }
-
-//     // word align
-//     *esp = (void *)((unsigned int)(*esp) & 0xfffffffc);
-
-//     // last null
-//     *esp -= 4;
-//     *((uint32_t *)*esp) = 0;
-
-//     // setting **esp with argvs
-//     for (i = argc - 1; i >= 0; i--) {
-//         *esp -= 4;
-//         *((void **)*esp) = argv_addr[i];
-//     }
-
-//     // setting **argv (addr of stack, esp)
-//     *esp -= 4;
-//     *((void **)*esp) = (*esp + 4);
-
-//     // setting argc
-//     *esp -= 4;
-//     *((int *)*esp) = argc;
-
-//     // setting ret addr
-//     *esp -= 4;
-//     *((int *)*esp) = 0;
-// }

@@ -145,10 +145,11 @@ page_fault(struct intr_frame *f) {
     write = (f->error_code & PF_W) != 0;
     user = (f->error_code & PF_U) != 0;
 
+    /* if wrong address, exit! */
     if (!user || is_kernel_vaddr(fault_addr) || not_present) {
-        //   f->eip = (void *)f->eax;
-        //   f->eax = 0xffffffff;
-        //   return;
+        f->eip = (void *)f->eax;
+        f->eax = 0xffffffff;
+
         exit(-1);
     }
 
